@@ -11,34 +11,42 @@ if 'transcript' not in st.session_state:
     st.session_state.transcript = ""
 if 'summary' not in st.session_state:
     st.session_state.summary = ""
+if 'audio_path' not in st.session_state:
+    st.session_state.audio_path = ""
 
 st.title("🎥 YouTube Summarizer AI Pro")
 url = st.text_input("Masukkan link YouTube:")
 
-if st.button("Proses") or st.session_state.processed:
-    if not st.session_state.processed:
-        with st.spinner("Mengunduh audio..."):
-            audio_path = download_audio(url)
-        
-        with st.spinner("Mentranskripsi audio..."):
-            st.session_state.transcript = transcribe_audio(audio_path)
-            st.session_state.processed = True
+if st.button("Proses"):
+    if not url:
+        st.warning("Harap masukkan URL YouTube")
+        st.stop()
     
+    with st.spinner("Mengunduh audio..."):
+        st.session_state.audio_path = download_audio(url)
+    
+    with st.spinner("Mentranskripsi audio..."):
+        st.session_state.transcript = transcribe_audio(st.session_state.audio_path)
+        st.session_state.processed = True
+
+if st.session_state.processed:
     # Tampilkan transkrip
     st.subheader("📝 Transkrip Lengkap")
     clean_transcript = "\n\n".join([p.strip() for p in st.session_state.transcript.split("\n") if p.strip()])
-    st.text_area("Transkrip", clean_transcript, height=300, key="transcript_area")
+    st.text_area("Transkrip", clean_transcript, height=300, key="transcript_area", disabled=True)
     
     if len(st.session_state.transcript.split()) < 50:
-        st.error("Transkrip terlalu pendek")
+        st.error("Transkrip terlalu pendek untuk dirangkum")
     else:
+        # Pilihan format output
         output_format = st.radio(
             "Format Output:",
             ("Poin-poin penting", "Paragraf penuh"),
-            index=0 if not st.session_state.processed else 1,
+            index=0,
             key="output_format"
         )
         
+        # Generate summary
         if not st.session_state.summary or st.button("Generate Ulang Rangkuman"):
             with st.spinner("Merangkum konten..."):
                 st.session_state.summary = summarize_text(
@@ -46,8 +54,9 @@ if st.button("Proses") or st.session_state.processed:
                     mode="bullet_points" if output_format == "Poin-poin penting" else "paragraph"
                 )
         
+        # Tampilkan summary
         st.subheader("📌 Hasil Rangkuman")
-        st.text_area("Rangkuman", st.session_state.summary, height=300, key="summary_area")
+        st.text_area("Rangkuman", st.session_state.summary, height=300, key="summary_area", disabled=True)
         
         # Sistem download
         col1, col2 = st.columns(2)
@@ -78,4 +87,5 @@ if st.session_state.processed and st.button("🔄 Proses Video Baru"):
     st.session_state.processed = False
     st.session_state.transcript = ""
     st.session_state.summary = ""
+    st.session_state.audio_path = ""
     st.experimental_rerun()
