@@ -3,7 +3,7 @@ import re
 from typing import Tuple
 import torch
 
-# Initialize model with better parameters
+# Initialize model
 summarizer = pipeline(
     "summarization", 
     model="facebook/bart-large-cnn",
@@ -20,23 +20,12 @@ def clean_text(text: str) -> Tuple[str, bool]:
     text = re.sub(r'\s+', ' ', text)     # Normalize whitespace
     return text.strip(), True
 
-def generate_summary(text_chunk: str) -> str:
-    """Generate summary for one chunk"""
-    try:
-        result = summarizer(
-            text_chunk,
-            max_length=300,
-            min_length=150,
-            do_sample=False,
-            truncation=True
-        )
-        return result[0]['summary_text']
-    except Exception as e:
-        print(f"Error summarizing chunk: {str(e)}")
-        return ""
-
-def summarize_text(text: str) -> Tuple[str, bool]:
-    """Fungsi utama dengan pengecekan error lebih ketat"""
+def summarize_text(text: str, mode: str = "bullet_points") -> Tuple[str, bool]:
+    """
+    Fungsi utama untuk menghasilkan rangkuman
+    Parameters:
+        mode: "bullet_points" (default) atau "paragraph"
+    """
     cleaned_text, is_valid = clean_text(text)
     if not is_valid:
         return "Teks tidak cukup panjang atau kosong", False
@@ -45,13 +34,25 @@ def summarize_text(text: str) -> Tuple[str, bool]:
     summaries = []
     
     for chunk in chunks:
-        chunk_summary = generate_summary(chunk)
-        if chunk_summary:
-            summaries.append(chunk_summary)
+        try:
+            summary = summarizer(
+                chunk,
+                max_length=300,
+                min_length=150,
+                do_sample=False,
+                truncation=True
+            )[0]['summary_text']
+            summaries.append(summary)
+        except Exception as e:
+            print(f"Error summarizing: {str(e)}")
+            continue
     
     if not summaries:
         return "Gagal menghasilkan rangkuman", False
     
-    # Gabungkan dengan pemisah yang jelas
-    final_summary = "\n\n• ".join(summaries)
-    return f"• {final_summary}", True
+    # Format output berdasarkan mode
+    if mode == "bullet_points":
+        final_summary = "\n• ".join(summaries)
+        return f"• {final_summary}", True
+    else:
+        return " ".join(summaries), True
